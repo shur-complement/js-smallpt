@@ -61,62 +61,76 @@ const intersect = (spheres, r) => {
   return [(t < inf), t, id];
 }
 
-function radiance(spheres, r, depth) {
-  let [hit, t, id] = intersect(spheres, r);
-  if (!hit)
-    return vzero();
+function radiance(spheres, r, depth_) {
+  let cl = vzero();
+  let cf = v3(1.,1.,1.);
+  let depth = depth_;
+  while (true) {
+    let [hit, t, id] = intersect(spheres, r);
+    if (!hit) return cl;
 
-  const obj = spheres[id];
+    let obj = spheres[id];
 
-  let x = vadd(r.o, r.d.smul(t));
-  let n = vsub(x, obj.p).norm();
-  let nl = n.dot(r.d) < 0 ? n : n.smul(-1);
-  let f = obj.c;
+    let x = vadd(r.o, r.d.smul(t));
+    let n = vsub(x, obj.p).norm();
+    let nl = n.dot(r.d) < 0 ? n : n.smul(-1);
+    let f = obj.c;
+  
+    let p = f.x > f.y && f.x > f.z ? f.x : f.y > f.z ? f.y : f.z; // max color component
+    cl = vadd(cl, cf.mult(obj.e));
+    if (++depth > 5)
+      if (rand() < p)
+        f = f.smul(1 / p);
+      else
+        return cl;
 
-  let p = f.x > f.y && f.x > f.z ? f.x : f.y > f.z ? f.y : f.z; // max color component
-  if (++depth > 5)
-    if (rand() < p)
-      f = f.smul(1 / p);
-    else
-      return obj.e;
+    cf = cf.mult(f);
+    if (obj.m === DIFF) {
+      let r1 = 2 * PI * rand(), r2 = rand(), r2s = sqrt(r2);
+      let w = nl;
+      let u = cross(abs(w.x) > .1 ? v3(0, 1, 0) : v3(1, 0, 0), w).norm();
+      let v = cross(w, u);
+      let d = vadd(vadd(u.smul(cos(r1) * r2s), v.smul(sin(r1) * r2s)), w.smul(sqrt(1 - r2))).norm();
+      r = Ray.of(x,d);
+      continue;
+    } else if (obj.m === SPEC) {
+      r = Ray.of(x, vsub(r.d, n.smul(2 * n.dot(r.d))));
+      continue;
+    }
 
-  if (obj.m === DIFF) {
-    let r1 = 2 * PI * rand(), r2 = rand(), r2s = sqrt(r2);
-    let w = nl;
-    let u = cross(abs(w.x) > .1 ? v3(0, 1, 0) : v3(1, 0, 0), w).norm();
-    let v = cross(w, u);
-    let d = vadd(vadd(u.smul(cos(r1) * r2s), v.smul(sin(r1) * r2s)), w.smul(sqrt(1 - r2))).norm();
-    return vadd(obj.e, f.mult(radiance(spheres, Ray.of(x, d), depth)));
-  } else if (obj.m === SPEC) {
-    return vadd(obj.e, f.mult(radiance(spheres, Ray.of(x, vsub(r.d, n.smul(2 * n.dot(r.d)))), depth)));
+    let reflRay = Ray.of(x, vsub(r.d, n.smul(2 * n.dot(r.d))));
+    let into = n.dot(nl) > 0;
+    let nc = 1;
+    let nt = 1.5;
+    let nnt = into ? nc / nt : nt / nc;
+    let ddn = r.d.dot(nl);
+    let cos2t;
+
+    if ((cos2t = 1 - nnt * nnt * (1 - ddn * ddn)) < 0) {
+      r = reflRay;
+      continue;
+    }
+
+    let tdir = (vsub(r.d.smul(nnt), n.smul(((into ? 1 : -1) * (ddn * nnt + sqrt(cos2t)))))).norm();
+    let a = nt - nc;
+    let b = nt + nc;
+    let R0 = a * a / (b * b);
+    let c = 1 - (into ? -ddn : tdir.dot(n));
+    let Re = R0 + (1 - R0) * c * c * c * c * c;
+    let Tr = 1 - Re;
+    let P = .25 + .5 * Re;
+    let RP = Re / P;
+    let TP = Tr / (1 - P);
+
+    if (rand() < P) {
+      cf = cf.smul(RP);
+      r = reflRay;
+    } else {
+      cf = cf.smul(TP);
+      r = Ray.of(x, tdir);
+    }
+    continue;
   }
-
-  let reflRay = Ray.of(x, vsub(r.d, n.smul(2 * n.dot(r.d))));
-  let into = n.dot(nl) > 0;
-  let nc = 1;
-  let nt = 1.5;
-  let nnt = into ? nc / nt : nt / nc;
-  let ddn = r.d.dot(nl);
-  let cos2t;
-
-  if ((cos2t = 1 - nnt * nnt * (1 - ddn * ddn)) < 0)
-    return vadd(obj.e, f.mult(radiance(spheres, reflRay, depth)));
-
-  let tdir = (vsub(r.d.smul(nnt), n.smul(((into ? 1 : -1) * (ddn * nnt + sqrt(cos2t)))))).norm();
-  let a = nt - nc;
-  let b = nt + nc;
-  let R0 = a * a / (b * b);
-  let c = 1 - (into ? -ddn : tdir.dot(n));
-  let Re = R0 + (1 - R0) * c * c * c * c * c;
-  let Tr = 1 - Re;
-  let P = .25 + .5 * Re;
-  let RP = Re / P;
-  let TP = Tr / (1 - P);
-
-  return vadd(obj.e, f.mult(depth > 2 ? (rand() < P ?
-    radiance(spheres, reflRay, depth).smul(RP) :
-    radiance(spheres, Ray.of(x, tdir), depth).smul(TP)) :
-    vadd(radiance(spheres, reflRay, depth).smul(Re), radiance(spheres, Ray.of(x, tdir), depth).smul(Tr))));
 }
 
 
