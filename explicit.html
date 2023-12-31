@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+  <title>smallpt</title>
+</head>
+<body>
+  <label for="samples">Samples</label>
+  <input id="samples" name="samples" type="number" value="4" min="4" step="4" max="1000"/>
+  <label for="scene">Scene</label>
+  <select id="scene" selected="cornell spheres">
+    <option value="cornell_tiny_light">cornell tiny light</option>
+    <option value="sky">sky</option>
+    <option value="forest">forest</option>
+    <option value="night_sky">night sky</option>
+    <option value="wada">wada</option>
+    <option value="wada2">wada2</option>
+    <option value="island">island</option>
+  </select>
+  <button onclick="main();">Render</button>
+  <br />
+  <canvas id="smallpt-canvas" width="512" height="384">Your browser does not support the canvas element.</canvas>
+  <script type="text/javascript" src="scenes.js"></script>
+  <script type="text/javascript" src="explicit.js"></script>
+</body>
+
+</html>
