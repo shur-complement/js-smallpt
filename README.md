@@ -1,10 +1,11 @@
 Javascript port of smallpt (Global Illumination in ~145 lines of JS)
 
 This repo contains two separate implementations of a path tracing renderer.
-`smallpt.js` is a port of [http://www.kevinbeason.com/smallpt/](smallpt), a 99-line C++ renderer.
-`explicit.js`, the same as above but faster, with explicit light sampling.
 
-Zero dependencies, just open the HTML file and render in your browser. If it hangs, try opening the console.
+* `smallpt.js` is a port of [http://www.kevinbeason.com/smallpt/](smallpt), a 99-line C++ renderer.
+* `explicit.js`, the same as above but faster, with explicit light sampling.
+
+There are ZERO dependencies, just open the HTML file and render in your browser. If it hangs, try opening the console.
 
 Included are eight (!) scenes which can be selected in the UI.
 
